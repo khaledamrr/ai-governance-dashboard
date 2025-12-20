@@ -31,14 +31,41 @@ class COMPASDataProcessor:
     def load_data(self, file_path):
         """Load COMPAS dataset from CSV file"""
         print(f"Loading data from {file_path}...")
-        self.df = self.spark.read.csv(
+        # Read CSV - Spark automatically renames duplicate columns (e.g., priors_count becomes priors_count14)
+        df_raw = self.spark.read.csv(
             file_path,
             header=True,
             inferSchema=True,
             nullValue="",
             nanValue=""
         )
+        
+        # Spark renames duplicate columns by appending numbers
+        # We need to find the first occurrence of priors_count (the one without a number suffix)
+        # and rename any numbered versions back to the original name if needed
+        column_mapping = {}
+        priors_count_found = False
+        
+        for col_name in df_raw.columns:
+            # If this is a numbered duplicate of priors_count (e.g., priors_count14), skip it
+            # We'll use the first priors_count (without number) if it exists
+            if col_name.startswith('priors_count') and col_name != 'priors_count':
+                # This is a duplicate, we'll skip it and use the first one
+                continue
+            # Keep all other columns as-is
+            column_mapping[col_name] = col_name
+        
+        # Select only the columns we want to keep
+        columns_to_select = list(column_mapping.keys())
+        self.df = df_raw.select(*columns_to_select)
+        
         print(f"Data loaded successfully. Rows: {self.df.count()}, Columns: {len(self.df.columns)}")
+        # Check if priors_count exists
+        if 'priors_count' in self.df.columns:
+            print("priors_count column found")
+        else:
+            print("WARNING: priors_count column not found. Available columns with 'priors':", 
+                  [c for c in self.df.columns if 'priors' in c.lower()])
         return self.df
     
     def clean_data(self):
@@ -78,6 +105,18 @@ class COMPASDataProcessor:
                     col_name,
                     when(col(col_name).isNull(), 0).otherwise(col(col_name))
                 )
+        
+        # Debug: Print available columns after cleaning
+        print(f"Columns after cleaning ({len(df_cleaned.columns)}): {', '.join(df_cleaned.columns[:15])}...")
+        if 'priors_count' not in df_cleaned.columns:
+            # Check if there's a numbered version
+            priors_cols = [c for c in df_cleaned.columns if 'priors' in c.lower()]
+            if priors_cols:
+                print(f"WARNING: priors_count not found, but found: {priors_cols}")
+                # Use the first priors column found
+                if len(priors_cols) > 0:
+                    print(f"Using {priors_cols[0]} as priors_count")
+                    df_cleaned = df_cleaned.withColumnRenamed(priors_cols[0], 'priors_count')
         
         # Convert to appropriate types
         if 'decile_score' in df_cleaned.columns:

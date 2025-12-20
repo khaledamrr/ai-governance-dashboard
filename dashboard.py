@@ -52,12 +52,12 @@ def load_and_process_data(file_path):
 
 # Train model
 @st.cache_resource
-def train_model(processor, model_type='random_forest'):
+def train_model(_processor, model_type='random_forest'):
     """Train ML model"""
     spark = init_spark()
     
     # Split data
-    train_df, test_df = processor.processed_df.randomSplit([0.8, 0.2], seed=42)
+    train_df, test_df = _processor.processed_df.randomSplit([0.8, 0.2], seed=42)
     
     # Train model
     predictor = RecidivismPredictor(spark)
@@ -183,11 +183,15 @@ def show_data_analysis(processor):
     """Show data analysis page"""
     st.header("🔍 Data Analysis")
     
-    # Convert to pandas for display
-    pdf = processor.processed_df.select(
-        'age', 'race_binary', 'sex', 'priors_count', 
-        'decile_score', 'two_year_recid'
-    ).limit(1000).toPandas()
+    # Convert to pandas for display - only select columns that exist
+    display_columns = ['age', 'race_binary', 'sex', 'decile_score', 'two_year_recid']
+    # Add priors_count only if it exists
+    if 'priors_count' in processor.processed_df.columns:
+        display_columns.insert(3, 'priors_count')
+    # Filter to only existing columns
+    available_columns = [col for col in display_columns if col in processor.processed_df.columns]
+    
+    pdf = processor.processed_df.select(*available_columns).limit(1000).toPandas()
     
     st.subheader("Sample Data")
     st.dataframe(pdf.head(100), use_container_width=True)
