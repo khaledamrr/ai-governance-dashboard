@@ -1,0 +1,29 @@
+services:
+  ai-governance-dashboard:
+    build: .
+    container_name: ai-governance-dashboard
+    ports:
+      - "8501:8501"  # Streamlit
+      - "8080:8080"  # Spark UI
+      - "4040:4040"  # Spark Application UI
+    volumes:
+      - ./compas-scores-two-years.csv:/app/compas-scores-two-years.csv:ro
+      - ./compas-scores-two-years.csv:/app/data/compas-scores-two-years.csv:ro
+      - ./src:/app/src
+      - ./dashboard.py:/app/dashboard.py
+      - ./run_analysis.py:/app/run_analysis.py
+      - ./models:/app/models
+      - ./results:/app/results
+    environment:
+      - SPARK_HOME=/opt/spark
+      - JAVA_HOME=/usr/lib/jvm/default-java
+      - PYSPARK_PYTHON=python3
+      - PYSPARK_DRIVER_PYTHON=python3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0
+
