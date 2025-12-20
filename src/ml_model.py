@@ -13,7 +13,6 @@ from sklearn.metrics import confusion_matrix, classification_report
 import warnings
 warnings.filterwarnings('ignore')
 
-# Optional aif360 import - may fail if tkinter not available
 try:
     from aif360.metrics import BinaryLabelDatasetMetric, ClassificationMetric
     from aif360.datasets import StandardDataset
@@ -83,7 +82,6 @@ class RecidivismPredictor:
         
         print("Evaluating model...")
         
-        # Binary classification evaluator (AUC)
         evaluator_auc = BinaryClassificationEvaluator(
             labelCol=label_col,
             rawPredictionCol='rawPrediction',
@@ -92,7 +90,6 @@ class RecidivismPredictor:
         
         auc = evaluator_auc.evaluate(predictions_df)
         
-        # Multiclass evaluator for accuracy, precision, recall
         evaluator_multi = MulticlassClassificationEvaluator(
             labelCol=label_col,
             predictionCol='prediction',
@@ -101,7 +98,6 @@ class RecidivismPredictor:
         
         accuracy = evaluator_multi.evaluate(predictions_df)
         
-        # Precision
         evaluator_precision = MulticlassClassificationEvaluator(
             labelCol=label_col,
             predictionCol='prediction',
@@ -109,7 +105,7 @@ class RecidivismPredictor:
         )
         precision = evaluator_precision.evaluate(predictions_df)
         
-        # Recall
+    
         evaluator_recall = MulticlassClassificationEvaluator(
             labelCol=label_col,
             predictionCol='prediction',
@@ -117,7 +113,6 @@ class RecidivismPredictor:
         )
         recall = evaluator_recall.evaluate(predictions_df)
         
-        # F1 Score
         evaluator_f1 = MulticlassClassificationEvaluator(
             labelCol=label_col,
             predictionCol='prediction',
@@ -149,7 +144,6 @@ class RecidivismPredictor:
         
         print(f"Calculating fairness metrics for {protected_attribute}...")
         
-        # Convert to pandas for easier analysis
         pdf = predictions_df.select(
             'two_year_recid',
             'prediction',
@@ -158,7 +152,6 @@ class RecidivismPredictor:
         
         fairness_metrics = {}
         
-        # Calculate metrics for each group
         groups = pdf[protected_attribute].unique()
         
         for group in groups:
@@ -167,28 +160,22 @@ class RecidivismPredictor:
             if len(group_data) == 0:
                 continue
             
-            # True positives, false positives, etc.
             tp = len(group_data[(group_data['two_year_recid'] == 1) & (group_data['prediction'] == 1)])
             fp = len(group_data[(group_data['two_year_recid'] == 0) & (group_data['prediction'] == 1)])
             tn = len(group_data[(group_data['two_year_recid'] == 0) & (group_data['prediction'] == 0)])
             fn = len(group_data[(group_data['two_year_recid'] == 1) & (group_data['prediction'] == 0)])
             
-            # Calculate rates
-            tpr = tp / (tp + fn) if (tp + fn) > 0 else 0  # True Positive Rate (Recall)
-            fpr = fp / (fp + tn) if (fp + tn) > 0 else 0  # False Positive Rate
-            tnr = tn / (tn + fp) if (tn + fp) > 0 else 0  # True Negative Rate
-            fnr = fn / (fn + tp) if (fn + tp) > 0 else 0  # False Negative Rate
+            tpr = tp / (tp + fn) if (tp + fn) > 0 else 0  
+            fpr = fp / (fp + tn) if (fp + tn) > 0 else 0  
+            tnr = tn / (tn + fp) if (tn + fp) > 0 else 0 
+            fnr = fn / (fn + tp) if (fn + tp) > 0 else 0  
             
-            # Positive Predictive Value (Precision)
             ppv = tp / (tp + fp) if (tp + fp) > 0 else 0
             
-            # Negative Predictive Value
             npv = tn / (tn + fn) if (tn + fn) > 0 else 0
             
-            # Base rate (actual recidivism rate)
             base_rate = (tp + fn) / len(group_data) if len(group_data) > 0 else 0
             
-            # Prediction rate (predicted recidivism rate)
             pred_rate = (tp + fp) / len(group_data) if len(group_data) > 0 else 0
             
             fairness_metrics[group] = {
@@ -204,20 +191,16 @@ class RecidivismPredictor:
                 'accuracy': (tp + tn) / len(group_data) if len(group_data) > 0 else 0
             }
         
-        # Calculate disparity metrics
         if len(groups) >= 2:
             group_list = list(groups)
             group1_metrics = fairness_metrics.get(group_list[0], {})
             group2_metrics = fairness_metrics.get(group_list[1], {})
             
             if group1_metrics and group2_metrics:
-                # Equalized Odds (TPR parity)
                 tpr_disparity = abs(group1_metrics['true_positive_rate'] - group2_metrics['true_positive_rate'])
                 
-                # Demographic Parity (prediction rate parity)
                 pred_rate_disparity = abs(group1_metrics['prediction_rate'] - group2_metrics['prediction_rate'])
                 
-                # Equal Opportunity (TPR parity)
                 equal_opportunity = tpr_disparity
                 
                 fairness_metrics['disparity'] = {

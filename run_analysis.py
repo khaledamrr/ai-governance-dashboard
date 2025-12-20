@@ -16,7 +16,6 @@ def main():
     print("AI Governance Dashboard - Analysis Pipeline")
     print("=" * 60)
     
-    # Initialize Spark
     print("\n[1/5] Initializing Spark Session...")
     spark = SparkSession.builder \
         .appName("AI_Governance_Analysis") \
@@ -24,7 +23,6 @@ def main():
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
         .getOrCreate()
     
-    # Load and process data
     print("\n[2/5] Loading and processing data...")
     data_file = "compas-scores-two-years.csv"
     if not os.path.exists(data_file):
@@ -35,40 +33,32 @@ def main():
     processor.clean_data()
     processor.prepare_features()
     
-    # Get statistics
     stats = processor.get_statistics()
     print("\nDataset Statistics:")
     print(f"  Total Records: {stats.get('total_records', 0):,}")
     print(f"  Recidivism Rate: {stats.get('recidivism_rate', 0):.2%}")
     
-    # Split data
     print("\n[3/5] Splitting data into train/test sets...")
     train_df, test_df = processor.processed_df.randomSplit([0.8, 0.2], seed=42)
     print(f"  Training set: {train_df.count()} records")
     print(f"  Test set: {test_df.count()} records")
     
-    # Train model
     print("\n[4/5] Training Random Forest model...")
     predictor = RecidivismPredictor(spark)
     predictor.train_random_forest(train_df)
     
-    # Make predictions
     print("\n[5/5] Making predictions and evaluating...")
     predictions = predictor.predict(test_df)
     
-    # Evaluate model
     metrics = predictor.evaluate_model(predictions)
     
-    # Calculate fairness metrics
     print("\nCalculating fairness metrics...")
     fairness_metrics = predictor.calculate_fairness_metrics(predictions)
     
-    # Bias analysis
     print("\nPerforming bias analysis...")
     analyzer = BiasAnalyzer(spark)
     bias_report = analyzer.comprehensive_bias_report(predictions)
     
-    # Print results
     print("\n" + "=" * 60)
     print("RESULTS SUMMARY")
     print("=" * 60)
@@ -95,16 +85,13 @@ def main():
         print(f"  Demographic Parity Disparity: {disp.get('demographic_parity_disparity', 0):.4f}")
         print(f"  Equal Opportunity Disparity: {disp.get('equal_opportunity_disparity', 0):.4f}")
     
-    # Save results
     print("\nSaving results...")
     os.makedirs("results", exist_ok=True)
     
-    # Save model
     model_path = "models/recidivism_model"
     os.makedirs("models", exist_ok=True)
     predictor.save_model(model_path)
     
-    # Save predictions
     predictions.select('id', 'two_year_recid', 'prediction', 'probability', 'race_binary').write \
         .mode('overwrite') \
         .option("header", "true") \

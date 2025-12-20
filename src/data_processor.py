@@ -31,7 +31,6 @@ class COMPASDataProcessor:
     def load_data(self, file_path):
         """Load COMPAS dataset from CSV file"""
         print(f"Loading data from {file_path}...")
-        # Read CSV - Spark automatically renames duplicate columns (e.g., priors_count becomes priors_count14)
         df_raw = self.spark.read.csv(
             file_path,
             header=True,
@@ -40,27 +39,19 @@ class COMPASDataProcessor:
             nanValue=""
         )
         
-        # Spark renames duplicate columns by appending numbers
-        # We need to find the first occurrence of priors_count (the one without a number suffix)
-        # and rename any numbered versions back to the original name if needed
         column_mapping = {}
         priors_count_found = False
         
         for col_name in df_raw.columns:
-            # If this is a numbered duplicate of priors_count (e.g., priors_count14), skip it
-            # We'll use the first priors_count (without number) if it exists
+
             if col_name.startswith('priors_count') and col_name != 'priors_count':
-                # This is a duplicate, we'll skip it and use the first one
                 continue
-            # Keep all other columns as-is
             column_mapping[col_name] = col_name
         
-        # Select only the columns we want to keep
         columns_to_select = list(column_mapping.keys())
         self.df = df_raw.select(*columns_to_select)
         
         print(f"Data loaded successfully. Rows: {self.df.count()}, Columns: {len(self.df.columns)}")
-        # Check if priors_count exists
         if 'priors_count' in self.df.columns:
             print("priors_count column found")
         else:
@@ -75,7 +66,6 @@ class COMPASDataProcessor:
         
         print("Cleaning data...")
         
-        # Select relevant columns for analysis
         relevant_columns = [
             'id', 'sex', 'age', 'age_cat', 'race', 'juv_fel_count',
             'juv_misd_count', 'juv_other_count', 'priors_count',
@@ -83,11 +73,9 @@ class COMPASDataProcessor:
             'is_violent_recid', 'v_decile_score', 'v_score_text'
         ]
         
-        # Filter to only include columns that exist
         available_columns = [col for col in relevant_columns if col in self.df.columns]
         df_cleaned = self.df.select(available_columns)
         
-        # Remove rows with missing critical values
         df_cleaned = df_cleaned.filter(
             col('two_year_recid').isNotNull() &
             col('race').isNotNull() &
@@ -95,7 +83,6 @@ class COMPASDataProcessor:
             col('age').isNotNull()
         )
         
-        # Handle missing values in numeric columns
         numeric_columns = ['juv_fel_count', 'juv_misd_count', 'juv_other_count', 
                           'priors_count', 'decile_score', 'v_decile_score']
         
@@ -106,19 +93,15 @@ class COMPASDataProcessor:
                     when(col(col_name).isNull(), 0).otherwise(col(col_name))
                 )
         
-        # Debug: Print available columns after cleaning
         print(f"Columns after cleaning ({len(df_cleaned.columns)}): {', '.join(df_cleaned.columns[:15])}...")
         if 'priors_count' not in df_cleaned.columns:
-            # Check if there's a numbered version
             priors_cols = [c for c in df_cleaned.columns if 'priors' in c.lower()]
             if priors_cols:
                 print(f"WARNING: priors_count not found, but found: {priors_cols}")
-                # Use the first priors column found
                 if len(priors_cols) > 0:
                     print(f"Using {priors_cols[0]} as priors_count")
                     df_cleaned = df_cleaned.withColumnRenamed(priors_cols[0], 'priors_count')
         
-        # Convert to appropriate types
         if 'decile_score' in df_cleaned.columns:
             df_cleaned = df_cleaned.withColumn('decile_score', col('decile_score').cast(IntegerType()))
         if 'v_decile_score' in df_cleaned.columns:
@@ -128,7 +111,6 @@ class COMPASDataProcessor:
         if 'is_recid' in df_cleaned.columns:
             df_cleaned = df_cleaned.withColumn('is_recid', col('is_recid').cast(IntegerType()))
         
-        # Create binary race categories (simplified for analysis)
         if 'race' in df_cleaned.columns:
             df_cleaned = df_cleaned.withColumn(
                 'race_binary',
@@ -137,7 +119,6 @@ class COMPASDataProcessor:
                 .otherwise('Other')
             )
         
-        # Create age groups
         if 'age' in df_cleaned.columns:
             df_cleaned = df_cleaned.withColumn(
                 'age_group',
@@ -157,14 +138,11 @@ class COMPASDataProcessor:
         
         print("Preparing features for ML...")
         
-        # Select features for modeling
         feature_columns = ['age', 'juv_fel_count', 'juv_misd_count', 
                           'juv_other_count', 'priors_count', 'decile_score']
         
-        # Filter to existing columns
         available_features = [col for col in feature_columns if col in self.processed_df.columns]
         
-        # Index categorical variables
         indexers = []
         if 'sex' in self.processed_df.columns:
             sex_indexer = StringIndexer(inputCol='sex', outputCol='sex_indexed')
@@ -174,7 +152,6 @@ class COMPASDataProcessor:
             race_indexer = StringIndexer(inputCol='race_binary', outputCol='race_indexed')
             indexers.append(race_indexer)
         
-        # Assemble features
         feature_list = available_features.copy()
         if 'sex_indexed' in [idx.getOutputCol() for idx in indexers]:
             feature_list.append('sex_indexed')
@@ -187,15 +164,12 @@ class COMPASDataProcessor:
             handleInvalid='skip'
         )
         
-        # Create pipeline
         stages = indexers + [assembler]
         pipeline = Pipeline(stages=stages)
         
-        # Fit and transform
         model = pipeline.fit(self.processed_df)
         df_features = model.transform(self.processed_df)
         
-        # Scale features
         scaler = StandardScaler(
             inputCol='features',
             outputCol='scaled_features',
@@ -217,21 +191,17 @@ class COMPASDataProcessor:
         
         stats = {}
         
-        # Overall statistics
         total_count = self.processed_df.count()
         stats['total_records'] = total_count
         
-        # Recidivism statistics
         if 'two_year_recid' in self.processed_df.columns:
             recid_count = self.processed_df.filter(col('two_year_recid') == 1).count()
             stats['recidivism_rate'] = recid_count / total_count if total_count > 0 else 0
         
-        # Race distribution
         if 'race_binary' in self.processed_df.columns:
             race_dist = self.processed_df.groupBy('race_binary').count().collect()
             stats['race_distribution'] = {row['race_binary']: row['count'] for row in race_dist}
         
-        # Gender distribution
         if 'sex' in self.processed_df.columns:
             gender_dist = self.processed_df.groupBy('sex').count().collect()
             stats['gender_distribution'] = {row['sex']: row['count'] for row in gender_dist}

@@ -12,7 +12,6 @@ from plotly.subplots import make_subplots
 import sys
 import os
 
-# Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.data_processor import COMPASDataProcessor
@@ -20,7 +19,6 @@ from src.ml_model import RecidivismPredictor
 from src.bias_analyzer import BiasAnalyzer
 from pyspark.sql import SparkSession
 
-# Page configuration
 st.set_page_config(
     page_title="AI Governance Dashboard",
     page_icon="⚖️",
@@ -28,7 +26,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize Spark Session
 @st.cache_resource
 def init_spark():
     """Initialize Spark session"""
@@ -39,7 +36,6 @@ def init_spark():
         .getOrCreate()
     return spark
 
-# Load and process data
 @st.cache_resource
 def load_and_process_data(file_path):
     """Load and process COMPAS data"""
@@ -50,29 +46,23 @@ def load_and_process_data(file_path):
     processor.prepare_features()
     return processor
 
-# Train model
 @st.cache_resource
 def train_model(_processor, model_type='random_forest'):
     """Train ML model"""
     spark = init_spark()
     
-    # Split data
     train_df, test_df = _processor.processed_df.randomSplit([0.8, 0.2], seed=42)
     
-    # Train model
     predictor = RecidivismPredictor(spark)
     if model_type == 'random_forest':
         predictor.train_random_forest(train_df)
     else:
         predictor.train_logistic_regression(train_df)
     
-    # Make predictions
     predictions = predictor.predict(test_df)
     
-    # Evaluate
     metrics = predictor.evaluate_model(predictions)
     
-    # Calculate fairness
     fairness_metrics = predictor.calculate_fairness_metrics(predictions)
     
     return predictor, predictions, metrics, fairness_metrics, test_df
@@ -91,7 +81,6 @@ def main():
         ["📊 Overview", "🔍 Data Analysis", "🤖 Model Performance", "⚖️ Bias Analysis", "📈 Fairness Metrics"]
     )
     
-    # File path - check multiple locations
     data_file = None
     possible_paths = [
         "compas-scores-two-years.csv",
@@ -111,7 +100,6 @@ def main():
         st.info("Looking for file in: " + str(possible_paths))
         st.stop()
     
-    # Load data
     with st.spinner("Loading and processing data..."):
         try:
             processor = load_and_process_data(data_file)
@@ -120,7 +108,6 @@ def main():
             st.error(f"Error loading data: {str(e)}")
             st.stop()
     
-    # Page routing
     if page == "📊 Overview":
         show_overview(processor, stats)
     elif page == "🔍 Data Analysis":
@@ -161,7 +148,6 @@ def show_overview(processor, stats):
     
     st.markdown("---")
     
-    # Race distribution chart
     st.subheader("Race Distribution")
     race_dist = stats.get('race_distribution', {})
     if race_dist:
@@ -170,7 +156,6 @@ def show_overview(processor, stats):
                     title="Distribution by Race")
         st.plotly_chart(fig, use_container_width=True)
     
-    # Gender distribution chart
     st.subheader("Gender Distribution")
     gender_dist = stats.get('gender_distribution', {})
     if gender_dist:
@@ -183,12 +168,9 @@ def show_data_analysis(processor):
     """Show data analysis page"""
     st.header("🔍 Data Analysis")
     
-    # Convert to pandas for display - only select columns that exist
     display_columns = ['age', 'race_binary', 'sex', 'decile_score', 'two_year_recid']
-    # Add priors_count only if it exists
     if 'priors_count' in processor.processed_df.columns:
         display_columns.insert(3, 'priors_count')
-    # Filter to only existing columns
     available_columns = [col for col in display_columns if col in processor.processed_df.columns]
     
     pdf = processor.processed_df.select(*available_columns).limit(1000).toPandas()
@@ -198,13 +180,11 @@ def show_data_analysis(processor):
     
     st.markdown("---")
     
-    # Age distribution
     st.subheader("Age Distribution")
     age_data = processor.processed_df.select('age').toPandas()
     fig = px.histogram(age_data, x='age', nbins=30, title="Age Distribution")
     st.plotly_chart(fig, use_container_width=True)
     
-    # Recidivism by race
     st.subheader("Recidivism Rate by Race")
     recid_by_race = processor.processed_df.groupBy('race_binary', 'two_year_recid').count().toPandas()
     if not recid_by_race.empty:
@@ -231,7 +211,6 @@ def show_model_performance(processor):
                 
                 st.success("Model trained successfully!")
                 
-                # Display metrics
                 st.subheader("Model Metrics")
                 col1, col2, col3, col4, col5 = st.columns(5)
                 
@@ -246,7 +225,6 @@ def show_model_performance(processor):
                 with col5:
                     st.metric("AUC", f"{metrics['auc']:.4f}")
                 
-                # Confusion Matrix
                 st.subheader("Confusion Matrix")
                 cm = predictor.get_confusion_matrix(predictions)
                 cm_df = pd.DataFrame(cm, 
@@ -257,7 +235,6 @@ def show_model_performance(processor):
                                title="Confusion Matrix")
                 st.plotly_chart(fig, use_container_width=True)
                 
-                # Store in session state
                 st.session_state['predictor'] = predictor
                 st.session_state['predictions'] = predictions
                 st.session_state['metrics'] = metrics
@@ -267,7 +244,6 @@ def show_model_performance(processor):
                 st.error(f"Error training model: {str(e)}")
                 st.exception(e)
     
-    # Show stored results
     if 'metrics' in st.session_state:
         st.subheader("Model Metrics")
         metrics = st.session_state['metrics']
@@ -310,7 +286,6 @@ def show_bias_analysis(processor):
                 
                 st.success("Bias analysis completed!")
                 
-                # Display results
                 st.subheader("Demographic Parity")
                 dp = bias_report.get('demographic_parity', {})
                 if 'disparity' in dp:
@@ -356,7 +331,6 @@ def show_fairness_metrics(processor):
     
     st.subheader("Fairness Metrics by Race")
     
-    # Create visualization
     metrics_df = []
     for group, metrics in fairness_metrics.items():
         if group != 'disparity' and isinstance(metrics, dict):
@@ -402,7 +376,6 @@ def show_fairness_metrics(processor):
         fig.update_layout(height=600, showlegend=False, title_text="Fairness Metrics Comparison")
         st.plotly_chart(fig, use_container_width=True)
         
-        # Display disparity metrics
         if 'disparity' in fairness_metrics:
             st.subheader("Disparity Metrics")
             disp = fairness_metrics['disparity']
