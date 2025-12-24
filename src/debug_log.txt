@@ -1,0 +1,147 @@
+WARNING:root:No module named 'tempeh': LawSchoolGPADataset will be unavailable. To install, run:
+pip install 'aif360[LawSchoolGPA]'
+WARNING:root:No module named 'tensorflow': AdversarialDebiasing will be unavailable. To install, run:
+pip install 'aif360[AdversarialDebiasing]'
+WARNING:root:No module named 'tensorflow': AdversarialDebiasing will be unavailable. To install, run:
+pip install 'aif360[AdversarialDebiasing]'
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+25/12/24 00:24:45 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+25/12/24 00:24:45 WARN Utils: Service 'SparkUI' could not bind on port 4040. Attempting port 4041.
+25/12/24 00:24:59 WARN GarbageCollectionMetrics: To enable non-built-in garbage collector(s) List(G1 Concurrent GC), users should configure it(them) to spark.eventLog.gcMetrics.youngGenerationGarbageCollectors or spark.eventLog.gcMetrics.oldGenerationGarbageCollectors
+25/12/24 00:25:04 WARN DAGScheduler: Broadcasting large task binary with size 1270.6 KiB
+25/12/24 00:25:05 WARN DAGScheduler: Broadcasting large task binary with size 1752.7 KiB
+25/12/24 00:25:05 WARN DAGScheduler: Broadcasting large task binary with size 2.2 MiB
+25/12/24 00:25:06 WARN DAGScheduler: Broadcasting large task binary with size 2.7 MiB
+25/12/24 00:25:08 WARN DAGScheduler: Broadcasting large task binary with size 1214.4 KiB
+25/12/24 00:25:09 WARN DAGScheduler: Broadcasting large task binary with size 1233.5 KiB
+25/12/24 00:25:10 WARN DAGScheduler: Broadcasting large task binary with size 1233.5 KiB
+25/12/24 00:25:10 WARN DAGScheduler: Broadcasting large task binary with size 1233.5 KiB
+25/12/24 00:25:11 WARN DAGScheduler: Broadcasting large task binary with size 1233.5 KiB
+25/12/24 00:25:11 WARN DAGScheduler: Broadcasting large task binary with size 1207.1 KiB
+25/12/24 00:25:12 WARN DAGScheduler: Broadcasting large task binary with size 1226.9 KiB
+25/12/24 00:25:13 WARN DAGScheduler: Broadcasting large task binary with size 1163.5 KiB
+25/12/24 00:25:13 WARN DAGScheduler: Broadcasting large task binary with size 1207.1 KiB
+25/12/24 00:25:13 WARN DAGScheduler: Broadcasting large task binary with size 1207.1 KiB
+25/12/24 00:25:14 WARN DAGScheduler: Broadcasting large task binary with size 1214.6 KiB
+[Stage 91:>                                                         (0 + 1) / 1]                                                                                [Stage 94:>                                                         (0 + 1) / 1]                                                                                [Stage 97:>                                                         (0 + 1) / 1]                                                                                
+============================================================
+AI Governance Dashboard - Random Forest Analysis Pipeline
+============================================================
+
+[1/5] Initializing Spark Session...
+
+[2/5] Loading and processing data...
+Loading data from compas-scores-two-years.csv...
+Data loaded successfully. Rows: 7214, Columns: 51
+WARNING: priors_count column not found. Available columns with 'priors': []
+Cleaning data...
+Columns after cleaning (14): id, sex, age, age_cat, race, juv_fel_count, juv_misd_count, juv_other_count, score_text, is_recid, two_year_recid, is_violent_recid, v_decile_score, v_score_text...
+Data cleaned. Final rows: 7214
+Preparing features for ML...
+DEBUG: Assembling features from: ['age', 'age_squared', 'juv_fel_count', 'juv_misd_count', 'juv_other_count', 'sex_indexed', 'race_indexed']
+root
+ |-- id: integer (nullable = true)
+ |-- sex: string (nullable = true)
+ |-- age: integer (nullable = true)
+ |-- age_cat: string (nullable = true)
+ |-- race: string (nullable = true)
+ |-- juv_fel_count: integer (nullable = true)
+ |-- juv_misd_count: integer (nullable = true)
+ |-- juv_other_count: integer (nullable = true)
+ |-- score_text: string (nullable = true)
+ |-- is_recid: integer (nullable = true)
+ |-- two_year_recid: integer (nullable = true)
+ |-- is_violent_recid: integer (nullable = true)
+ |-- v_decile_score: integer (nullable = true)
+ |-- v_score_text: string (nullable = true)
+ |-- race_binary: string (nullable = false)
+ |-- age_group: string (nullable = false)
+ |-- age_squared: integer (nullable = true)
+ |-- sex_indexed: double (nullable = false)
+ |-- race_indexed: double (nullable = false)
+ |-- features: vector (nullable = true)
+
+Features prepared successfully. Output column: 'scaled_features'
+
+Dataset Statistics:
+  Total Records: 7,214
+  Recidivism Rate: 45.07%
+
+[3/5] Splitting data into train/test sets...
+  Training set: 6528 records
+  Test set: 686 records
+
+[4/5] Training Random Forest model...
+Training Random Forest model (Balanced Configuration)...
+Random Forest model trained successfully.
+
+[5/5] Making predictions and evaluating...
+Making predictions...
+Predictions completed
+Evaluating model...
+Model Evaluation Results:
+  Accuracy: 0.5831
+  Precision: 0.5766
+  Recall: 0.5831
+  F1 Score: 0.5708
+  AUC: 0.6048
+
+Calculating fairness metrics...
+Calculating fairness metrics for race_binary...
+
+Performing bias analysis...
+Generating comprehensive bias report...
+Calculating Demographic Parity for race_binary...
+Calculating Equalized Odds for race_binary...
+Calculating Equal Opportunity for race_binary...
+Analyzing calibration for race_binary...
+Calibration analysis skipped: '<' not supported between instances of 'DenseVector' and 'DenseVector'
+
+============================================================
+RESULTS SUMMARY
+============================================================
+
+Model Performance:
+  Accuracy: 0.5831
+  Precision: 0.5766
+  Recall: 0.5831
+  F1 Score: 0.5708
+  AUC: 0.6048
+
+Fairness Metrics by Race:
+
+  African-American:
+    TPR: 0.6080
+    FPR: 0.4943
+    Accuracy: 0.5568
+
+  Caucasian:
+    TPR: 0.0909
+    FPR: 0.0704
+    Accuracy: 0.5851
+
+  Other:
+    TPR: 0.1875
+    FPR: 0.0656
+    Accuracy: 0.6774
+
+Disparity Metrics:
+  Equalized Odds Disparity: 0.5170
+  Demographic Parity Disparity: 0.4723
+  Equal Opportunity Disparity: 0.5170
+
+Saving results...
+Model saved to models/recidivism_model
+Traceback (most recent call last):
+  File "/app/run_analysis.py", line 129, in <module>
+    main()
+  File "/app/run_analysis.py", line 118, in main
+    predictions.select('id', 'two_year_recid', 'prediction', 'probability', 'race_binary').write \
+  File "/usr/local/lib/python3.9/site-packages/pyspark/sql/readwriter.py", line 1864, in csv
+    self._jwrite.csv(path)
+  File "/usr/local/lib/python3.9/site-packages/py4j/java_gateway.py", line 1322, in __call__
+    return_value = get_return_value(
+  File "/usr/local/lib/python3.9/site-packages/pyspark/errors/exceptions/captured.py", line 185, in deco
+    raise converted from None
+pyspark.errors.exceptions.captured.AnalysisException: [UNSUPPORTED_DATA_TYPE_FOR_DATASOURCE] The CSV datasource doesn't support the column `probability` of the type "STRUCT<type: TINYINT, size: INT, indices: ARRAY<INT>, values: ARRAY<DOUBLE>>".

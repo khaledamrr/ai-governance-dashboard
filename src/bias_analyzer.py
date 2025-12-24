@@ -19,6 +19,7 @@ class BiasAnalyzer:
         """Calculate Demographic Parity (Statistical Parity)"""
         print(f"Calculating Demographic Parity for {protected_attribute}...")
         
+        # Calculate prediction rate for each group
         parity_df = predictions_df.groupBy(protected_attribute).agg(
             mean(prediction_col).alias('prediction_rate'),
             count('*').alias('count')
@@ -31,6 +32,7 @@ class BiasAnalyzer:
                 'count': row['count']
             }
         
+        # Calculate disparity
         if len(parity_metrics) >= 2:
             rates = [v['prediction_rate'] for v in parity_metrics.values()]
             disparity = max(rates) - min(rates)
@@ -55,10 +57,12 @@ class BiasAnalyzer:
         for group in groups:
             group_data = pdf[pdf[protected_attribute] == group]
             
+            # True Positive Rate (TPR)
             tp = len(group_data[(group_data[label_col] == 1) & (group_data[prediction_col] == 1)])
             fn = len(group_data[(group_data[label_col] == 1) & (group_data[prediction_col] == 0)])
             tpr = tp / (tp + fn) if (tp + fn) > 0 else 0
             
+            # False Positive Rate (FPR)
             fp = len(group_data[(group_data[label_col] == 0) & (group_data[prediction_col] == 1)])
             tn = len(group_data[(group_data[label_col] == 0) & (group_data[prediction_col] == 0)])
             fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
@@ -68,6 +72,7 @@ class BiasAnalyzer:
                 'false_positive_rate': fpr
             }
         
+        # Calculate disparities
         if len(odds_metrics) >= 2:
             tprs = [v['true_positive_rate'] for v in odds_metrics.values()]
             fprs = [v['false_positive_rate'] for v in odds_metrics.values()]
@@ -107,6 +112,7 @@ class BiasAnalyzer:
                 'positive_count': len(positive_group)
             }
         
+        # Calculate disparity
         if len(opportunity_metrics) >= 2:
             tprs = [v['true_positive_rate'] for v in opportunity_metrics.values() if v['positive_count'] > 0]
             if tprs:
@@ -125,6 +131,7 @@ class BiasAnalyzer:
             probability_col
         ).toPandas()
         
+        # Extract probability of positive class
         if isinstance(pdf[probability_col].iloc[0], (list, np.ndarray)):
             pdf['prob_positive'] = pdf[probability_col].apply(lambda x: float(x[1]) if len(x) > 1 else float(x[0]))
         else:
@@ -136,6 +143,7 @@ class BiasAnalyzer:
         for group in groups:
             group_data = pdf[pdf[protected_attribute] == group]
             
+            # Bin probabilities
             bins = np.linspace(0, 1, 11)
             group_data['prob_bin'] = pd.cut(group_data['prob_positive'], bins=bins)
             
@@ -172,6 +180,7 @@ class BiasAnalyzer:
             'equal_opportunity': self.equal_opportunity(predictions_df, protected_attribute, label_col, prediction_col)
         }
         
+        # Try calibration if probability column exists
         try:
             if 'probability' in predictions_df.columns:
                 report['calibration'] = self.calibration_analysis(
@@ -181,6 +190,7 @@ class BiasAnalyzer:
             print(f"Calibration analysis skipped: {e}")
         
         return report
+
 
 
 
